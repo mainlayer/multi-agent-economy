@@ -8,40 +8,47 @@ Each agent registers a service, charges for access, and purchases from upstream 
 
 ## Architecture
 
-```
-                         ┌─────────────────────────────────────┐
-                         │           Publisher Agent            │
-                         │      Orchestrates the pipeline       │
-                         │         Pays all other agents        │
-                         └──────────────┬──────────────────────┘
-                                        │ pays
-               ┌────────────────────────┼──────────────────────────┐
-               │                        │                          │
-               v                        v                          v
-   ┌───────────────────┐   ┌────────────────────┐   ┌─────────────────────┐
-   │  Researcher Agent │   │   Editor Agent      │   │  Translator Agent   │
-   │  Sells: $0.10     │   │  Sells: $0.03       │   │  Sells: $0.04       │
-   │  Research Reports │   │  Edited Content     │   │  Translations       │
-   └─────────┬─────────┘   └─────────┬──────────┘   └──────────┬──────────┘
-             │ sells to                │ buys from               │ buys from
-             v                        v                          v
-   ┌─────────────────────────────────────────────────────────────────────────┐
-   │                          Writer Agent                                   │
-   │                 Sells written content at $0.05                          │
-   │            Buys research from Researcher ($0.10)                        │
-   └─────────────────────────────────────────────────────────────────────────┘
+This is a **multi-tier AI agent economy** where agents autonomously pay each other for services:
 
-Payment flow per pipeline run (with translation):
-  Publisher → Researcher  $0.10   (research)
-  Writer    → Researcher  $0.10   (writer purchases research internally)
-  Publisher → Writer      $0.05   (content)
-  Editor    → Writer      $0.05   (editor purchases content internally)
-  Publisher → Editor      $0.03   (editing)
-  Translator→ Writer      $0.05   (translator purchases content internally)
-  Publisher → Translator  $0.04   (translation)
-                          ------
-  Total per topic:        ~$0.42
 ```
+User Request: "Write about Artificial Intelligence"
+                            │
+                            v
+                   ┌─────────────────────┐
+                   │ Publisher Agent     │
+                   │ Role: Orchestrator  │
+                   │ Coordinates flow    │
+                   │ Pays everyone       │
+                   └──────────┬──────────┘
+                              │
+           ┌──────────────────┼──────────────────┐
+           │                  │                  │
+           v                  v                  v
+    ┌────────────┐      ┌──────────┐      ┌──────────────┐
+    │ Researcher │      │  Writer  │      │ Editor Agent │
+    │ $0.10/call │      │$0.05/call│      │ $0.03/call   │
+    │ Finds facts│      │Writes    │      │ Edits prose  │
+    └────────────┘      └──────────┘      └──────────────┘
+         (1)                 (3)                (5)
+
+    (2) Writer buys      (4) Editor buys
+        research         from Writer
+
+    (6) Optional: Translator
+        $0.04 for Spanish version
+```
+
+**Single pipeline execution**: Topic → Researcher → Writer → Editor → Output
+
+**Total cost per topic**: ~$0.18 (Researcher $0.10 + Writer $0.05 + Editor $0.03)
+
+**Payment flow**:
+1. **Publisher → Researcher**: $0.10 for research report
+2. **Writer → Researcher**: $0.10 (Writer internally purchases research before writing)
+3. **Publisher → Writer**: $0.05 for written content
+4. **Editor → Writer**: $0.05 (Editor purchases content before editing)
+5. **Publisher → Editor**: $0.03 for polished content
+6. **Optional: Publisher → Translator**: $0.04 for Spanish translation
 
 ### Mainlayer Payment Model
 
@@ -105,13 +112,15 @@ docker compose --profile examples up competitive-economy
 
 ## Agents
 
-| Agent | Resource slug | Price | Buys from |
+| Agent | What it sells | Price | Dependencies |
 |---|---|---|---|
-| `ResearcherAgent` | `research-report` | $0.10 | — |
-| `WriterAgent` | `written-content` | $0.05 | Researcher |
-| `EditorAgent` | `edited-content` | $0.03 | Writer |
-| `TranslatorAgent` | `translated-content` | $0.04 | Writer |
-| `PublisherAgent` | `published-package` | $0.20 | All of the above |
+| **Researcher** | Research reports on topics | $0.10/call | None (upstream source) |
+| **Writer** | Written content | $0.05/call | Buys research from Researcher |
+| **Editor** | Polished, edited content | $0.03/call | Buys content from Writer |
+| **Translator** | Translated content | $0.04/call | Buys content from Writer |
+| **Publisher** | Complete published package | — | Orchestrates all; pays everyone |
+
+**Key insight**: Each agent is independent and self-interested. The Writer doesn't care who pays for its content — it just wants to be paid. The Editor doesn't want to edit raw facts; it wants to buy finished writing and polish it.
 
 ---
 
@@ -145,53 +154,79 @@ multi-agent-economy/
 
 ## API Integration
 
-### BaseAgent
+### BaseAgent — Mainlayer Integration
 
-All agents extend `BaseAgent`, which wraps the Mainlayer API:
+All agents extend `BaseAgent`, which handles Mainlayer HTTP calls:
 
 ```python
 from src.agents.base_agent import BaseAgent
 
 agent = BaseAgent(
-    name="MyAgent",
-    api_key="your_key",
-    agent_wallet="wallet_address",
+    name="ResearcherAgent",
+    api_key="ml_your_key",
+    agent_wallet="wallet_researcher_001",
 )
 
-# Register a service
+# 1. Register YOUR service (this agent sells)
 resource = await agent.setup_service(
-    slug="my-service",
-    price=0.05,
-    description="Does something useful",
+    slug="research-report",
+    price=0.10,
+    description="Comprehensive research reports",
+)
+print(f"Resource ID: {resource['id']}")  # res_001
+
+# 2. Buy another agent's service (this agent pays)
+receipt = await agent.pay_for_service(
+    resource_id="res_writer_002",  # Writer's resource
+    payer_wallet=agent.wallet,
 )
 
-# Pay for another agent's service
-receipt = await agent.pay_for_service(resource_id="res_001")
-
-# Check access
-has_access = await agent.check_access(resource_id="res_001")
+# 3. Verify you have access
+has_access = await agent.check_access(
+    resource_id="res_writer_002",
+    payer_wallet=agent.wallet,
+)
 ```
 
-### AgentEconomy
+### AgentEconomy — Full Simulation
+
+Run a complete multi-agent economy with automatic orchestration:
 
 ```python
 from src.economy import AgentEconomy, EconomyConfig
 
-config = EconomyConfig(api_key="your_key")
+# Configuration
+config = EconomyConfig(
+    api_key="ml_your_key",
+    researcher_budget=10.0,   # $10 to spend on research
+    writer_budget=10.0,
+    editor_budget=10.0,
+)
 
 async with AgentEconomy(config) as economy:
-    # Run one topic through the full pipeline
+    # Single topic through full pipeline
+    print("=== Topic: Artificial Intelligence ===")
     package = await economy.run_topic("Artificial Intelligence")
-    print(package.summary())
+    print(f"Final output:\n{package.output}")
+    print(f"Total cost: ${package.total_cost}")
 
-    # Run multiple topics
+    # Multiple topics (full simulation)
+    print("\n=== Running 3-topic simulation ===")
     stats = await economy.run_simulation(
-        topics=["AI", "Climate", "Biotech"],
+        topics=["AI", "Climate Change", "Biotech"],
         include_translation=True,
         target_language="Spanish",
     )
     print(stats.summary())
+    # Output:
+    # Total revenue: $2.16 (3 topics × $0.18 + translation × 3)
+    # Researcher earned: $0.30
+    # Writer earned: $0.45
+    # Editor earned: $0.18
+    # Translator earned: $0.12
 ```
+
+**Real economy in action**: Each agent autonomously decides whether to buy from upstream agents, calculates margins, and attempts to profit.
 
 ---
 
