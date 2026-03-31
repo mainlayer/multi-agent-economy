@@ -1,0 +1,38 @@
+version: "3.9"
+
+services:
+  economy-demo:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: multi-agent-economy:latest
+    container_name: multi-agent-economy
+    environment:
+      # Set your real key here or via a .env file (never commit .env)
+      MAINLAYER_API_KEY: ${MAINLAYER_API_KEY:-demo_key_replace_me}
+      PYTHONUNBUFFERED: "1"
+    command: python -m src.main
+
+  simple-pipeline:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: multi-agent-economy:latest
+    container_name: simple-pipeline
+    environment:
+      MAINLAYER_API_KEY: ${MAINLAYER_API_KEY:-demo_key_replace_me}
+      PYTHONUNBUFFERED: "1"
+    command: python examples/simple_pipeline.py
+    profiles: ["examples"]
+
+  competitive-economy:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: multi-agent-economy:latest
+    container_name: competitive-economy
+    environment:
+      MAINLAYER_API_KEY: ${MAINLAYER_API_KEY:-demo_key_replace_me}
+      PYTHONUNBUFFERED: "1"
+    command: python examples/competitive_economy.py
+    profiles: ["examples"]
