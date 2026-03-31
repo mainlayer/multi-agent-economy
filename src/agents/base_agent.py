@@ -9,7 +9,7 @@ import httpx
 
 logger = logging.getLogger(__name__)
 
-MAINLAYER_BASE_URL = "https://api.mainlayer.xyz"
+MAINLAYER_BASE_URL = "https://api.mainlayer.fr"
 
 
 class MainlayerError(Exception):

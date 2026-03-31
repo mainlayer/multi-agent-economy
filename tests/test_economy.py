@@ -62,7 +62,7 @@ def _build_economy_with_mock(response_sequence: list[httpx.Response]) -> AgentEc
         economy.publisher,
     ):
         agent.client = httpx.AsyncClient(
-            base_url="https://api.mainlayer.xyz",
+            base_url="https://api.mainlayer.fr",
             headers={"Authorization": f"Bearer {FAKE_API_KEY}"},
             transport=transport,
         )

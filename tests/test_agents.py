@@ -56,7 +56,7 @@ def _mock_agent(agent_cls, responses: list[httpx.Response], **kwargs):
     """Construct an agent whose HTTP client uses a mock transport."""
     agent = agent_cls(name="TestAgent", api_key=FAKE_API_KEY, agent_wallet=FAKE_WALLET, **kwargs)
     agent.client = httpx.AsyncClient(
-        base_url="https://api.mainlayer.xyz",
+        base_url="https://api.mainlayer.fr",
         headers={"Authorization": f"Bearer {FAKE_API_KEY}"},
         transport=_transport_for(responses),
     )

@@ -1,6 +1,6 @@
 # Multi-Agent Economy
 
-A production-ready demo showing a network of AI agents that **pay each other for tasks** using [Mainlayer](https://mainlayer.xyz) — payment infrastructure for AI agents.
+A production-ready demo showing a network of AI agents that **pay each other for tasks** using [Mainlayer](https://mainlayer.fr) — payment infrastructure for AI agents.
 
 Each agent registers a service, charges for access, and purchases from upstream agents — creating a self-sustaining content production economy driven entirely by autonomous payments.
 
@@ -71,7 +71,7 @@ pip install httpx>=0.27 rich>=13.0
 export MAINLAYER_API_KEY=your_api_key_here
 ```
 
-Get your API key at [mainlayer.xyz](https://mainlayer.xyz).
+Get your API key at [mainlayer.fr](https://mainlayer.fr).
 
 ### 3. Run the full demo
 
